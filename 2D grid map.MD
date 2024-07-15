@@ -224,7 +224,8 @@ Make the script executable : `$ chmod +x src/image_processing/src/occupancy_grid
 ### + `Step 4`: Dynamic environment code
 
 + stitch image dynamic environment 
-
+```python
+#!/usr/bin/env python
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
@@ -304,7 +305,7 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
----
+```
 
 ### + `Step 5`: Simulation in Gazebo and Validate
 

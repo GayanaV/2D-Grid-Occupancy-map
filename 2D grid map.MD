@@ -70,58 +70,62 @@ $ map:=$HOME/map_house.yaml
 
 Write a ROS2 node to capture images from the overhead cameras.
 ```python
+
 #!/usr/bin/env python
 
-import rospy
+import rclpy
+from rclpy.node import Node
 import cv2
-import numpy as np
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 
-class ImageStitchingNode:
+class ImageStitchingNode(Node):
     def __init__(self):
-        rospy.init_node('image_stitching_node', anonymous=True)
+        super().__init__('image_stitching_node')
         
         self.bridge = CvBridge()
         self.images = {}
         self.subscribers = []
-        
+
         camera_topics = ["/camera1/image_raw", "/camera2/image_raw", "/camera3/image_raw", "/camera4/image_raw"]
-        
+
         for i, topic in enumerate(camera_topics):
-            self.subscribers.append(rospy.Subscriber(topic, Image, self.image_callback, callback_args=i))
+            self.subscribers.append(self.create_subscription(Image, topic, lambda msg, idx=i: self.image_callback(msg, idx), 10))
         
-        self.stitched_image_pub = rospy.Publisher('/stitched_image', Image, queue_size=10)
-        
-        rospy.spin()
+        self.stitched_image_pub = self.create_publisher(Image, '/stitched_image', 10)
 
     def image_callback(self, msg, camera_index):
         try:
             cv_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
             self.images[camera_index] = cv_image
             
-            if len(self.images) == 4:
+            if len(self.images) == len(self.subscribers):  # Check if all cameras have sent images
                 self.stitch_images()
         except Exception as e:
-            rospy.logerr(f"Error in image_callback: {e}")
+            self.get_logger().error(f"Error in image_callback: {e}")
 
     def stitch_images(self):
         images = [self.images[i] for i in sorted(self.images.keys())]
         
-        stitcher = cv2.Stitcher.create()
-        (status, stitched) = stitcher.stitch(images)
-        
+        stitcher = cv2.Stitcher_create()
+        status, stitched = stitcher.stitch(images)
+
         if status == cv2.Stitcher_OK:
             stitched_msg = self.bridge.cv2_to_imgmsg(stitched, "bgr8")
             self.stitched_image_pub.publish(stitched_msg)
         else:
-            rospy.logerr(f"Image stitching failed with status {status}")
+            self.get_logger().error(f"Image stitching failed with status {status}")
+
+def main(args=None):
+    rclpy.init(args=args)
+    image_stitching_node = ImageStitchingNode()
+    rclpy.spin(image_stitching_node)
+    image_stitching_node.destroy_node()
+    rclpy.shutdown()
 
 if __name__ == '__main__':
-    try:
-        ImageStitchingNode()
-    except rospy.ROSInterruptException:
-        pass
+    main()
+
 ```
 Make the script executable : `$ chmod +x src/image_processing/src/image_stitching.py`.
 
@@ -138,23 +142,31 @@ Create an occupancy grid from the binary image.
 ```python
 #!/usr/bin/env python
 
-import rospy
+import rclpy
+from rclpy.node import Node
 import cv2
 import numpy as np
 from sensor_msgs.msg import Image
 from nav_msgs.msg import OccupancyGrid
 from cv_bridge import CvBridge
 
-class OccupancyGridMapNode:
+class OccupancyGridMapNode(Node):
     def __init__(self):
-        rospy.init_node('occupancy_grid_map_node', anonymous=True)
+        super().__init__('occupancy_grid_map_node')
         
         self.bridge = CvBridge()
         
-        rospy.Subscriber("/stitched_image", Image, self.image_callback)
-        self.occupancy_grid_pub = rospy.Publisher('/occupancy_grid', OccupancyGrid, queue_size=10)
-        
-        rospy.spin()
+        self.subscription = self.create_subscription(
+            Image,
+            '/stitched_image',
+            self.image_callback,
+            10
+        )
+        self.occupancy_grid_pub = self.create_publisher(
+            OccupancyGrid,
+            '/occupancy_grid',
+            10
+        )
 
     def image_callback(self, msg):
         try:
@@ -165,12 +177,12 @@ class OccupancyGridMapNode:
             occupancy_grid = self.create_occupancy_grid(binary_image)
             self.occupancy_grid_pub.publish(occupancy_grid)
         except Exception as e:
-            rospy.logerr(f"Error in image_callback: {e}")
+            self.get_logger().error(f"Error in image_callback: {e}")
 
     def create_occupancy_grid(self, binary_image):
         occupancy_grid = OccupancyGrid()
         
-        occupancy_grid.header.stamp = rospy.Time.now()
+        occupancy_grid.header.stamp = self.get_clock().now().to_msg()
         occupancy_grid.header.frame_id = "map"
         
         occupancy_grid.info.resolution = 0.05
@@ -185,24 +197,117 @@ class OccupancyGridMapNode:
         for i in range(binary_image.shape[0]):
             for j in range(binary_image.shape[1]):
                 if binary_image[i, j] == 255:
-                    data.append(0)
+                    data.append(0)  # Free space
                 else:
-                    data.append(100)
+                    data.append(100)  # Occupied space
         
         occupancy_grid.data = data
         
         return occupancy_grid
 
+def main(args=None):
+    rclpy.init(args=args)
+    occupancy_grid_node = OccupancyGridMapNode()
+    rclpy.spin(occupancy_grid_node)
+    occupancy_grid_node.destroy_node()
+    rclpy.shutdown()
+
 if __name__ == '__main__':
-    try:
+    main()
+ try:
         OccupancyGridMapNode()
-    except rospy.ROSInterruptException:
+    except rclpy.ROSInterruptException:
         pass
 ```
 
 Make the script executable : `$ chmod +x src/image_processing/src/occupancy_grid_map.py`.
 
-### + `Step 4`: Simulate in Gazebo and Validate
+### + `Step 4`: Dynamic environment code
+
++ stitch image dynamic environment 
+
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge
+import cv2
+import numpy as np
+import os
+
+class ImageStitchingNode(Node):
+    def __init__(self):
+        super().__init__('image_stitching_node')
+        self.bridge = CvBridge()
+        self.images = [None] * 4  # Initialize list to store images from 4 cameras
+        self.camera_topics = [
+            '/overhead_camera/overhead_camera1/image_raw',
+            '/overhead_camera/overhead_camera2/image_raw',
+            '/overhead_camera/overhead_camera3/image_raw',
+            '/overhead_camera/overhead_camera4/image_raw'
+        ]
+        self.subscribers = []
+
+        for i, topic in enumerate(self.camera_topics):
+            self.subscribers.append(self.create_subscription(
+                Image,
+                topic,
+                lambda msg, index=i: self.image_callback(msg, index),
+                10
+            ))
+
+        self.stitched_image_pub = self.create_publisher(Image, '/stitched_image', 10)
+        self.timer = self.create_timer(1.0, self.timer_callback)
+        self.get_logger().info('ImageStitchingNode has been started.')
+
+    def image_callback(self, msg, index):
+        try:
+            cv_image = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
+            self.images[index] = cv_image
+        except Exception as e:
+            self.get_logger().error(f'Error in image_callback: {e}')
+
+    def timer_callback(self):
+        if all(image is not None for image in self.images):
+            try:
+                self.stitch_images()
+            except Exception as e:
+                self.get_logger().error(f'Error in timer_callback: {e}')
+
+    def combine_images(self, images):
+        resized_images = [cv2.resize(img, (320, 240)) for img in images]
+        top_row = np.hstack((resized_images[3], resized_images[2]))
+        bottom_row = np.hstack((resized_images[1], resized_images[0]))
+        combined_image = np.vstack((top_row, bottom_row))
+        return combined_image
+
+    def stitch_images(self):
+        combined_image = self.combine_images(self.images)
+
+        try:
+            # Save the stitched image to a file
+            output_path = os.path.expanduser('~/stitched_image.jpg')
+            cv2.imwrite(output_path, combined_image)
+            self.get_logger().info(f'Stitched image saved to {output_path}')
+
+            # Publish the stitched image
+            stitched_msg = self.bridge.cv2_to_imgmsg(combined_image, 'bgr8')
+            self.stitched_image_pub.publish(stitched_msg)
+            self.get_logger().info('Image stitching succeeded.')
+        except Exception as e:
+            self.get_logger().error(f'Error in stitch_images: {e}')
+
+def main(args=None):
+    rclpy.init(args=args)
+    image_stitching_node = ImageStitchingNode()
+    rclpy.spin(image_stitching_node)
+    image_stitching_node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+---
+
+### + `Step 5`: Simulate in Gazebo and Validate
 
 Create a launch file to run both nodes.
 

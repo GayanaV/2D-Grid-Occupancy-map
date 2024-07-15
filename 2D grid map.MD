@@ -34,7 +34,7 @@ turtlebot3_house.launch.py”`
 +  Topics related overhead camera are now 
 visible.
 
-### How to acquire data from camera : [[image_listener.py](./image_listener.py)]
+###  to acquire data from camera : [[image_listener.py](./image_listener.py)]
 
 + ROS works as a pub-sub model 
 + The images are being streamed on the topics.
@@ -44,7 +44,7 @@ visible.
 + 2 – Created subscription to camera topic.
 + 3 – Every time the camera image is published, listener_callback function is executed.
 
-### How to evaluate the generated map?
+###  to evaluate the generated map?
 
 [[Evaluation_of_gen_map](./Evaluation_of_gen_map/)]
 + Run command below (replace path in yaml file)
@@ -127,7 +127,6 @@ if __name__ == '__main__':
     main()
 
 ```
-Make the script executable : `$ chmod +x src/image_processing/src/image_stitching.py`.
 
 ### + `Step 3`: Generate 2D Occupancy Grid Map (Create the Occupancy Grid Map Node)
 
@@ -307,11 +306,11 @@ if __name__ == '__main__':
     main()
 ---
 
-### + `Step 5`: Simulate in Gazebo and Validate
+### + `Step 5`: Simulation in Gazebo and Validate
 
-Create a launch file to run both nodes.
+Created a launch file to run both nodes.
 
-Create a launch file image_processing.launch: 
+Created a launch file image_processing.launch: 
 
 ```xml
 <launch>
@@ -326,7 +325,7 @@ Run the launch file : ` $ roslaunch image_processing image_processing.launch`.
 
 + Implement Object Detection:
 
-Use a pre-trained model (e.g., YOLO, SSD) to detect objects and update the occupancy grid.
+Use a pre-trained model (e.g., YOLO, SSD) to detect objects and also to update the occupancy grid.
 
 ```python
 import cv2
@@ -387,7 +386,7 @@ labeled_grid = add_semantic_labels(occupancy_grid, detections)
 ```
 
 ### + `Step 7`: Validate and Compare with AMR-generated Map
-+ Simulate AMR with SLAM:
++ Simulation of AMR with SLAM:
   
 # Object Detection:
 

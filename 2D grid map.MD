@@ -21,7 +21,7 @@ The primary objective of this project is to develop a 2D occupancy grid map of a
 [C1: (-5,-2,8) C2:(-5,3,8) C3:(1,-2,8) C4:(1,3,8)]
 
 ### Overhead Cameras :
-+ Download the [infraCam.zip](./infraCam/)
++ Download the infraCam.zip
 + Extract the folder `“turtlebot3_camera_house”` 
 and place in the `“……/turtlebot3_ws/src/turtlebot3_simulations/turtlebot3_gazebo/models”` directory.
 +  Replace the `waffle_pi.model` in 
@@ -34,7 +34,7 @@ turtlebot3_house.launch.py”`
 +  Topics related overhead camera are now 
 visible.
 
-###  to acquire data from camera : [[image_listener.py](./image_listener.py)]
+###  to acquire data from camera : image_listener.py
 
 + ROS works as a pub-sub model 
 + The images are being streamed on the topics.
@@ -46,7 +46,7 @@ visible.
 
 ###  to evaluate the generated map?
 
-[[Evaluation_of_gen_map](./Evaluation_of_gen_map/)]
+Evaluation_of_gen_map
 + Run command below (replace path in yaml file)
 
 ```bash
